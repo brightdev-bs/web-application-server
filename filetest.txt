@@ -1,0 +1,4 @@
+file test
+I want to check if BufferedReader collect all the data in this file
+Thank you !
+1234567 8
