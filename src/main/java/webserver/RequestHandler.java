@@ -1,10 +1,12 @@
 package webserver;
 
 import java.io.*;
+import java.net.HttpCookie;
 import java.net.Socket;
 import java.nio.file.Files;
 import java.util.Map;
 
+import db.DataBase;
 import model.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,9 +53,30 @@ public class RequestHandler extends Thread {
             if(url.startsWith("/user/create")) {
                 String queryString = IOUtils.readData(br, contentLength);
                 log.debug("Content-Length = {}", queryString);
+
                 Map<String, String> params = HttpRequestUtils.parseQueryString(queryString);
+
                 User user = new User(params.get("userId"), params.get("password"), params.get("name"), params.get("email"));
                 log.debug("User = {}", user);
+
+                DataBase.addUser(user);
+
+                response302Header(dos, "/index.html");
+            } else if(url.startsWith("/user/login") && contentLength != 0) {
+                String queryString = IOUtils.readData(br, contentLength);
+                Map<String, String> params = HttpRequestUtils.parseQueryString(queryString);
+                User user = DataBase.findUserById(params.get("userId"));
+
+                if(user == null) {
+                    responseResource(dos, "/user/login_failed.html");
+                    return;
+                }
+
+                if(user.getPassword().equals(params.get("password"))) {
+                    response302LoginSuccessHeader(dos);
+                } else {
+                    responseResource(dos, "/user/login_failed.html");
+                }
                 response302Header(dos, "/index.html");
             } else {
                 byte[] body = Files.readAllBytes(new File("webapp" + url).toPath());
@@ -95,6 +118,23 @@ public class RequestHandler extends Thread {
             dos.flush();
         } catch (IOException e) {
             log.error(e.getMessage());
+        }
+    }
+
+    private void responseResource(DataOutputStream dos, String url) throws IOException {
+        byte[] body = Files.readAllBytes(new File("webapp" + url).toPath());
+        response200Header(dos, body.length);
+        responseBody(dos, body);
+    }
+
+    private void response302LoginSuccessHeader(DataOutputStream dos) {
+        try {
+            dos.writeBytes("HTTP/1.1 302 FOUND \r\n");
+            dos.writeBytes("Set-Cookie: logined=true \r\n");
+            dos.writeBytes("Location: /index.html \r\n");
+            dos.writeBytes("\r\n");
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 }
