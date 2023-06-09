@@ -101,7 +101,11 @@ public class RequestHandler extends Thread {
                     response200Header(dos, body.length);
                     responseBody(dos, body);
                 }
-            }else {
+            } else if(url.endsWith(".css")) {
+                byte[] body = Files.readAllBytes(new File("webapp" + url).toPath());
+                response200HeaderForCSS(dos, body.length);
+                responseBody(dos, body);
+            } else {
                 byte[] body = Files.readAllBytes(new File("webapp" + url).toPath());
                 response200Header(dos, body.length);
                 responseBody(dos, body);
@@ -137,6 +141,17 @@ public class RequestHandler extends Thread {
         }
     }
 
+    private void response200HeaderForCSS(DataOutputStream dos, int lengthOfBodyContent) {
+        try {
+            dos.writeBytes("HTTP/1.1 200 OK \r\n");
+            dos.writeBytes("Content-Type: text/css;charset=utf-8\r\n");
+            dos.writeBytes("Content-Length: " + lengthOfBodyContent + "\r\n");
+            dos.writeBytes("\r\n");
+        } catch (IOException e) {
+            log.error(e.getMessage());
+        }
+    }
+
     private void response302Header(DataOutputStream dos, String location) {
         try {
             dos.writeBytes("HTTP/1.1 302 FOUND \r\n");
@@ -144,22 +159,6 @@ public class RequestHandler extends Thread {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    private void responseBody(DataOutputStream dos, byte[] body) {
-        try {
-            dos.write(body, 0, body.length);
-            dos.flush();
-        } catch (IOException e) {
-            log.error(e.getMessage());
-        }
-    }
-
-    private void responseResource(OutputStream out, String url) throws IOException {
-        DataOutputStream dos = new DataOutputStream(out);
-        byte[] body = Files.readAllBytes(new File("webapp" + url).toPath());
-        response200Header(dos, body.length);
-        responseBody(dos, body);
     }
 
     private void response302LoginSuccessHeader(DataOutputStream dos) {
@@ -170,6 +169,22 @@ public class RequestHandler extends Thread {
             dos.writeBytes("\r\n");
         } catch (IOException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    private void responseResource(OutputStream out, String url) throws IOException {
+        DataOutputStream dos = new DataOutputStream(out);
+        byte[] body = Files.readAllBytes(new File("webapp" + url).toPath());
+        response200Header(dos, body.length);
+        responseBody(dos, body);
+    }
+
+    private void responseBody(DataOutputStream dos, byte[] body) {
+        try {
+            dos.write(body, 0, body.length);
+            dos.flush();
+        } catch (IOException e) {
+            log.error(e.getMessage());
         }
     }
 }
