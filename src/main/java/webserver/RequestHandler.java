@@ -4,6 +4,8 @@ import java.io.*;
 import java.net.HttpCookie;
 import java.net.Socket;
 import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Map;
 
 import db.DataBase;
@@ -31,7 +33,6 @@ public class RequestHandler extends Thread {
 
             BufferedReader br = new BufferedReader(new InputStreamReader(in, "UTF-8"));
             String line = br.readLine();
-            log.debug("request line : {}", line);
 
             if(line == null) {
                 return;
@@ -42,10 +43,19 @@ public class RequestHandler extends Thread {
             log.debug("url = {}", url);
 
             int contentLength = 0;
+            Collection<User> users = new ArrayList<>();
             while(!line.equals("")) {
                 line = br.readLine();
+                log.debug("line = {}", line);
                 if(line.contains("Content-Length")) {
                     contentLength = getContentLength(line);
+                } else if(line.contains("Set-Cookie")) {
+                    Map<String, String> cookies = HttpRequestUtils.parseCookies(line.split(" ")[0]);
+                    boolean flag = Boolean.valueOf(cookies.get("Set-Cookie"));
+                    log.debug("flag = {}", flag);
+                    if(flag) {
+                        users = DataBase.findAll();
+                    }
                 }
             }
 
@@ -62,23 +72,42 @@ public class RequestHandler extends Thread {
                 DataBase.addUser(user);
 
                 response302Header(dos, "/index.html");
-            } else if(url.startsWith("/user/login") && contentLength != 0) {
+            } else if(url.equals("/user/login")) {
                 String queryString = IOUtils.readData(br, contentLength);
                 Map<String, String> params = HttpRequestUtils.parseQueryString(queryString);
-                User user = DataBase.findUserById(params.get("userId"));
 
+                User user = DataBase.findUserById(params.get("userId"));
                 if(user == null) {
-                    responseResource(dos, "/user/login_failed.html");
+                    log.debug("사용자 없음.");
+                    responseResource(out, "/user/login_failed.html");
                     return;
                 }
 
                 if(user.getPassword().equals(params.get("password"))) {
+                    log.debug("사용자 로그인 성공 : {}", user.getUserId());
                     response302LoginSuccessHeader(dos);
                 } else {
                     responseResource(dos, "/user/login_failed.html");
                 }
-                response302Header(dos, "/index.html");
-            } else {
+            } else if(url.startsWith("/user/list")) {
+
+                if(users.isEmpty()) {
+                    String body = "사용자 없음";
+                    response200Header(dos, body.length());
+                    responseBody(dos, body.getBytes());
+                }
+                else {
+                    StringBuilder sb = new StringBuilder();
+                    sb.append("<li>");
+                    for (User user : users) {
+                        sb.append("     <ul>" + user.getEmail() + "</ul>");
+                    }
+                    sb.append("</li>");
+                    byte[] body = sb.toString().getBytes();
+                    response200Header(dos, body.length);
+                    responseBody(dos, body);
+                }
+            }else {
                 byte[] body = Files.readAllBytes(new File("webapp" + url).toPath());
                 response200Header(dos, body.length);
                 responseBody(dos, body);
@@ -121,7 +150,8 @@ public class RequestHandler extends Thread {
         }
     }
 
-    private void responseResource(DataOutputStream dos, String url) throws IOException {
+    private void responseResource(OutputStream out, String url) throws IOException {
+        DataOutputStream dos = new DataOutputStream(out);
         byte[] body = Files.readAllBytes(new File("webapp" + url).toPath());
         response200Header(dos, body.length);
         responseBody(dos, body);
