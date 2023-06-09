@@ -62,6 +62,12 @@ public class HttpRequest {
         return headers.get(name);
     }
 
+    public boolean isLogin(String cookieValue) {
+        String value = headers.get(cookieValue);
+        if(value == null) return false;
+        return Boolean.parseBoolean(value);
+    }
+
     public String getParameter(String name) {
         return params.get(name);
     }
