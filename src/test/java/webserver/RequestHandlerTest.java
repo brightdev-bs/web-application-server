@@ -31,17 +31,4 @@ class RequestHandlerTest {
         assertEquals(tokens[1], "/index.html");
     }
 
-    @DisplayName("쿼리 스트링 파싱 테스트 (회원가입)")
-    @Test
-    public void parseQueryString() {
-        String queryString = "/user/create?userId=user&password=password&name=kim&email=kim@naver.com";
-        Map<String, String> map = new HashMap<>();
-        if(queryString.contains("?")) {
-            String info = queryString.substring(queryString.indexOf("?") + 1);
-            map = HttpRequestUtils.parseQueryString(info);
-        }
-
-    }
-
-
 }

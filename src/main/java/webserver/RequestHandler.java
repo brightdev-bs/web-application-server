@@ -46,6 +46,7 @@ public class RequestHandler extends Thread {
             boolean logined = false;
             while(!line.equals("")) {
                 line = br.readLine();
+                log.debug(line);
                 if(line.contains("Content-Length")) {
                     contentLength = getContentLength(line);
                 } else if(line.contains("Cookie")) {
