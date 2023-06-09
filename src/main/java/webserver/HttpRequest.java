@@ -16,10 +16,9 @@ import java.util.Map;
 public class HttpRequest {
 
     private static final Logger log = LoggerFactory.getLogger(HttpRequest.class);
-    private String method;
-    private String path;
     private Map<String, String> headers = new HashMap<>();
-    private Map<String, String> params = new HashMap<>();
+    private RequestLine requestLine;
+    Map<String, String> params;
 
 
     public HttpRequest(InputStream in) {
@@ -30,7 +29,7 @@ public class HttpRequest {
 
             if (line == null) return;
 
-            processRequestLine(line);
+            requestLine = new RequestLine(line);
 
             line = br.readLine();
             while(line != null && !line.equals("")) {
@@ -40,48 +39,30 @@ public class HttpRequest {
                 line = br.readLine();
             }
 
-            if("POST".equals(method)) {
+            if("POST".equals(this.getMethod())) {
                 String body = IOUtils.readData(br, Integer.parseInt(headers.get("Content-Length")));
                 params = HttpRequestUtils.parseQueryString(body);
+            } else {
+                params = requestLine.getParams();
             }
         } catch(IOException e) {
             log.error(e.getMessage());
         }
     }
 
-    private void processRequestLine(String line) {
-        log.debug("request line = {}", line);
-        String[] requestLine = line.split(" ");
-        method = requestLine[0];
+    public HttpMethod getMethod() {
+        return requestLine.getMethod();
+    }
 
-        if("POST".equals(method)) {
-            path = requestLine[1];
-            return;
-        }
-
-        int index = requestLine[1].indexOf("?");
-        if (index == -1) {
-            path = requestLine[1];
-        } else {
-            path = requestLine[1].substring(0, index);
-            params = HttpRequestUtils.parseQueryString(requestLine[1].substring(index + 1));
-        }
+    public String getPath() {
+        return requestLine.getPath();
     }
 
     public String getHeader(String name) {
         return headers.get(name);
     }
 
-    public String getParameter(String key) {
-        return params.get(key);
-    }
-
-    public String getMethod() {
-        return method;
-    }
-
-    public String getPath() {
-        if(path.indexOf("?") == -1) return path;
-        else return path.substring(0, path.indexOf("?"));
+    public String getParameter(String name) {
+        return params.get(name);
     }
 }
