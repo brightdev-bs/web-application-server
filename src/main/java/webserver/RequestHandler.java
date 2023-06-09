@@ -43,19 +43,13 @@ public class RequestHandler extends Thread {
             log.debug("url = {}", url);
 
             int contentLength = 0;
-            Collection<User> users = new ArrayList<>();
+            boolean logined = false;
             while(!line.equals("")) {
                 line = br.readLine();
-                log.debug("line = {}", line);
                 if(line.contains("Content-Length")) {
                     contentLength = getContentLength(line);
-                } else if(line.contains("Set-Cookie")) {
-                    Map<String, String> cookies = HttpRequestUtils.parseCookies(line.split(" ")[0]);
-                    boolean flag = Boolean.valueOf(cookies.get("Set-Cookie"));
-                    log.debug("flag = {}", flag);
-                    if(flag) {
-                        users = DataBase.findAll();
-                    }
+                } else if(line.contains("Cookie")) {
+                    logined = isLogin(line);
                 }
             }
 
@@ -89,17 +83,17 @@ public class RequestHandler extends Thread {
                 } else {
                     responseResource(dos, "/user/login_failed.html");
                 }
-            } else if(url.startsWith("/user/list")) {
+            } else if(url.equals("/user/list")) {
 
-                if(users.isEmpty()) {
-                    String body = "사용자 없음";
-                    response200Header(dos, body.length());
-                    responseBody(dos, body.getBytes());
+                if(!logined) {
+                    responseResource(out, "user/login.html");
+                    return;
                 }
                 else {
                     StringBuilder sb = new StringBuilder();
                     sb.append("<li>");
-                    for (User user : users) {
+                    for (User user : DataBase.findAll()) {
+                        log.debug("user : {}", user.getEmail());
                         sb.append("     <ul>" + user.getEmail() + "</ul>");
                     }
                     sb.append("</li>");
@@ -115,6 +109,17 @@ public class RequestHandler extends Thread {
         } catch (IOException e) {
             log.error(e.getMessage());
         }
+    }
+
+    private boolean isLogin(String line) {
+        String[] headerToken = line.split(":");
+        Map<String, String> cookies = HttpRequestUtils.parseCookies(headerToken[1].trim());
+        String value = cookies.get("logined");
+        if (value == null) {
+            return false;
+        }
+
+        return Boolean.parseBoolean(value);
     }
 
     private int getContentLength(String line) {
