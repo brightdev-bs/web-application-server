@@ -16,66 +16,64 @@ import java.util.Map;
 public class HttpRequest {
 
     private static final Logger log = LoggerFactory.getLogger(HttpRequest.class);
-
-    private final InputStream in;
     private String method;
     private String path;
-    private Map<String, String> headerMap = new HashMap<>();
-    private Map<String, String> parameterMap = new HashMap<>();
+    private Map<String, String> headers = new HashMap<>();
+    private Map<String, String> params = new HashMap<>();
 
 
-    public HttpRequest(InputStream in) throws IOException {
-        this.in = in;
-        BufferedReader br = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
-        String line = br.readLine();
+    public HttpRequest(InputStream in) {
 
-        if (line == null) return;
+        try {
+            BufferedReader br = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
+            String line = br.readLine();
 
-        getRequestLineInfo(line);
+            if (line == null) return;
 
-        getHeaderInfo(br);
+            processRequestLine(line);
 
-        getParameterInfo(br);
-    }
-
-    private void getRequestLineInfo(String line) {
-        String[] requestLine = line.split(" ");
-        method = requestLine[0];
-        path = requestLine[1];
-    }
-
-    private void getHeaderInfo(BufferedReader br) throws IOException {
-        String line;
-        line = br.readLine();
-        while(line != null && !line.equals("")) {
-            log.debug(line);
-            String[] tokens = line.split(": ");
-            headerMap.put(tokens[0], tokens[1]);
             line = br.readLine();
+            while(line != null && !line.equals("")) {
+                log.debug(line);
+                String[] tokens = line.split(": ");
+                headers.put(tokens[0], tokens[1]);
+                line = br.readLine();
+            }
+
+            if("POST".equals(method)) {
+                String body = IOUtils.readData(br, Integer.parseInt(headers.get("Content-Length")));
+                params = HttpRequestUtils.parseQueryString(body);
+            }
+        } catch(IOException e) {
+            log.error(e.getMessage());
         }
     }
 
-    private void getParameterInfo(BufferedReader br) throws IOException {
-        // post와 get만 있다고 가정했다.
-        if(method.equals("POST")) {
-            if(headerMap.containsKey("Content-Length")) {
-                String body = IOUtils.readData(br, Integer.parseInt(headerMap.get("Content-Length")));
-                parameterMap = HttpRequestUtils.parseQueryString(body);
-            }
+    private void processRequestLine(String line) {
+        log.debug("request line = {}", line);
+        String[] requestLine = line.split(" ");
+        method = requestLine[0];
+
+        if("POST".equals(method)) {
+            path = requestLine[1];
+            return;
+        }
+
+        int index = requestLine[1].indexOf("?");
+        if (index == -1) {
+            path = requestLine[1];
         } else {
-            if(path.indexOf("?") != -1) {
-                String queryString = path.substring(path.indexOf("?") + 1);
-                parameterMap = HttpRequestUtils.parseQueryString(queryString);
-            }
+            path = requestLine[1].substring(0, index);
+            params = HttpRequestUtils.parseQueryString(requestLine[1].substring(index + 1));
         }
     }
 
     public String getHeader(String name) {
-        return headerMap.get(name);
+        return headers.get(name);
     }
 
     public String getParameter(String key) {
-        return parameterMap.get(key);
+        return params.get(key);
     }
 
     public String getMethod() {
