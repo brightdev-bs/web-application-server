@@ -28,48 +28,12 @@ public class RequestHandler extends Thread {
             HttpResponse response = new HttpResponse(out);
             String url = getDefaultPath(request.getPath());
 
-
-            if(url.startsWith("/user/create")) {
-                User user = new User(
-                        request.getParameter("userId"),
-                        request.getParameter("password"),
-                        request.getParameter("name"),
-                        request.getParameter("email")
-                );
-                log.debug("User = {}", user);
-                DataBase.addUser(user);
-                response.sendRedirect("/index.html");
-            } else if(url.equals("/user/login")) {
-                User user = DataBase.findUserById(request.getParameter("userId"));
-                log.debug("user = {}", user);
-                if(user != null) {
-                    if(user.getPassword().equals(request.getParameter("password"))) {
-                        log.debug("사용자 로그인 성공 : {}", user.getUserId());
-                        response.addHeader("logined", "true");
-                        response.sendRedirect("/index.html");
-                    } else {
-                        response.sendRedirect("/user/login_failed.html");
-                    }
-                } else {
-                    response.sendRedirect("/user/login_failed.html");
-                }
-            } else if(url.equals("/user/list")) {
-
-                if(!request.getHeader("Cookie").equals(false)) {
-                    response.sendRedirect("/user/login.html");
-                    return;
-                }
-
-                StringBuilder sb = new StringBuilder();
-                sb.append("<li>");
-                for (User user : DataBase.findAll()) {
-                    log.debug("user : {}", user.getEmail());
-                    sb.append("     <ul>" + user.getEmail() + "</ul>");
-                }
-                sb.append("</li>");
-                response.forwardBody(sb.toString());
+            Controller controller = RequestMapping.getController(url);
+            if(controller == null) {
+                String path = getDefaultPath(request.getPath());
+                response.forward(path);
             } else {
-                response.forward(url);
+                controller.service(request, response);
             }
         } catch (IOException e) {
             log.error(e.getMessage());
