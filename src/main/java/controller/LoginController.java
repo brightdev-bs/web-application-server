@@ -1,9 +1,13 @@
 package controller;
 
+import db.HttpSessions;
+import http.HttpSession;
 import model.User;
 import db.DataBase;
 import http.HttpRequest;
 import http.HttpResponse;
+
+import java.util.UUID;
 
 public class LoginController extends AbstractController {
     @Override
@@ -11,7 +15,8 @@ public class LoginController extends AbstractController {
         User user = DataBase.findUserById(request.getParameter("userId"));
         if (user != null) {
             if (user.login(request.getParameter("password"))) {
-                response.addHeader("Set-Cookie", "logined=true");
+                HttpSession session = request.getSession();
+                session.setAttribute("user", user);
                 response.sendRedirect("/index.html");
             } else {
                 response.sendRedirect("/user/login_failed.html");
